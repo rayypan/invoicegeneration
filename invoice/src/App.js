@@ -48,9 +48,9 @@ export default function InvoiceGenerator() {
   ];
 
   const PASSWORDS = {
-  "D.H": process.env.REACT_APP_PASS_DH,
-  "N.H": process.env.REACT_APP_PASS_ND,
-  "S.R": process.env.REACT_APP_PASS_SR,
+  "D.H": REACT_APP_PASS_DH,
+  "N.H": REACT_APP_PASS_ND,
+  "S.R": REACT_APP_PASS_SR,
 };
 
   useEffect(() => {
