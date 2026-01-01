@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #2f3e2f;
+        margin: 30px;
+      }
+
+      .header {
+        text-align: center;
+        border-bottom: 3px solid #c9a24d;
+        padding-bottom: 15px;
+        margin-bottom: 30px;
+      }
+
+      .logo {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: 3px solid #2f6f4e;
+        margin-bottom: 10px;
+      }
+
+      .brand-name {
+        font-size: 26px;
+        font-weight: bold;
+        color: #2f6f4e;
+        letter-spacing: 1px;
+      }
+
+      .tagline {
+        font-size: 12px;
+        color: #7a6a3a;
+        margin-top: 5px;
+      }
+
+      .invoice-title {
+        text-align: right;
+        font-size: 20px;
+        color: #2f6f4e;
+        margin-bottom: 20px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th {
+        background-color: #2f6f4e;
+        color: white;
+        padding: 10px;
+        font-size: 14px;
+        text-align: left;
+      }
+
+      td {
+        border: 1px solid #d4d4d4;
+        padding: 10px;
+        font-size: 13px;
+      }
+
+      tbody tr:nth-child(even) {
+        background-color: #f4f7f4;
+      }
+
+      .total-box {
+        margin-top: 30px;
+        width: 100%;
+        text-align: right;
+      }
+
+      .total-label {
+        font-size: 14px;
+        color: #555;
+      }
+
+      .total-amount {
+        font-size: 22px;
+        font-weight: bold;
+        color: #c9a24d;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      .footer {
+        margin-top: 50px;
+        text-align: center;
+        font-size: 11px;
+        color: #777;
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+      <img src="static/tinkori.png" class="logo" />
+      <div class="brand-name">THE TINKORI TALES</div>
+      <div class="tagline">
+        Three Threads, One Story – shared from our world to yours
+      </div>
+      <div style="text-align: right; margin-bottom: 10px">
+        <span
+          th:text="${invoiceStatus}"
+          th:style="${invoiceStatus == 'PAID'} 
+      ? 'background:#16a34a;color:white;padding:6px 14px;border-radius:20px;font-weight:bold;' 
+      : 'background:#facc15;color:#3f3f46;padding:6px 14px;border-radius:20px;font-weight:bold;'"
+        >
+        </span>
+      </div>
+    </div>
+
+    <div class="invoice-title">INVOICE</div>
+
+    <div style="margin-bottom: 20px; font-size: 13px">
+      <b>Bill To:</b><br />
+      <span th:text="${name}"></span><br />
+      <span th:text="${phone}"></span><br />
+      <span th:text="${address}"></span><br />
+      <b>Date:</b> <span th:text="${date}"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Unit Price (Rs)</th>
+          <th>Qty</th>
+          <th>Total (Rs)</th>
+          <th>Item Discount</th>
+          <th>After Discount (Rs)</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr th:each="item : ${items}">
+          <td th:text="${item.name}"></td>
+          <td th:text="${item.price}"></td>
+          <td th:text="${item.quantity}"></td>
+
+          <td th:text="${item.price * item.quantity}"></td>
+          <td>
+            <span th:text="${item.discount}"></span>
+            <span
+              th:text="${item.discountType == 'PERCENT' ? '%' : 'Rs'}"
+            ></span>
+          </td>
+          <td
+            th:text="${
+                    item.discountType == 'PERCENT'
+                    ? (item.price * item.quantity) - ((item.price * item.quantity) * item.discount / 100)
+                    : (item.price * item.quantity) - item.discount
+                    }"
+          ></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top: 20px; font-size: 13px; text-align: right">
+      <div>
+        Subtotal :
+        <span th:text="${subtotal}"></span>
+      </div>
+
+      <div th:if="${applyOverallDiscount}">
+        Overall Discount :
+        <span th:text="${overallDiscount}"></span>
+        <span th:text="${overallDiscountType == 'PERCENT' ? '%' : 'Rs'}"></span>
+      </div>
+
+      <div th:if="${adjustmentAmount > 0}">
+        Adjustment Amount :
+        <span th:text="${adjustmentAmount}"></span>
+        <span th:text="${adjustmentAmountType == 'PERCENT' ? '%' : 'Rs'}"></span>
+      </div>
+    </div>
+
+    <div class="total-box">
+      <div class="total-label">Total Payable</div>
+      <div class="total-amount">Rs <span th:text="${amount}"></span></div>
+    </div>
+
+    <div style="margin-top: 40px; text-align: right; font-size: 12px">
+      <div>Authorized Signature</div>
+      <img src="static/signature.png" style="width: 120px; margin-top: 5px" />
+      <div style="margin-top: 5px">
+        Signed on: <span th:text="${date}"></span>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 20px; font-size: 13px; width: 50%">
+      <div>
+        <b>Payment Method:</b>
+        <span th:text="${paymentMethod}"></span>
+      </div>
+
+      <div th:if="${paymentMethod == 'ONLINE'}">
+        <b>Payment Details:</b><br />
+        <span th:text="${paymentDetails}"></span>
+      </div>
+
+      <div style="margin-top: 10px">
+        <b>Issued By:</b>
+        <span th:text="${issuedBy}"></span>
+      </div>
+    </div>
+
+    <div
+      th:if="${ownerMessage != null && ownerMessage != ''}"
+      style="
+        margin-top: 25px;
+        padding: 12px;
+        background: #f8fafc;
+        border-left: 4px solid #4f46e5;
+        font-size: 13px;
+        font-style: italic;
+      "
+    >
+      <b>Message from us:</b><br />
+      <span th:text="${ownerMessage}"></span>
+    </div>
+    <div
+      th:if="${invoiceStatus == 'QUOTATION'}"
+      style="margin-top: 30px; font-size: 11px; color: #555; text-align: center"
+    >
+      This is a quotation only and not a payment receipt.
+    </div>
+
+    <div class="footer">
+      Stories crafted with care — thank you for trusting us
+    </div>
+  </body>
+</html>
