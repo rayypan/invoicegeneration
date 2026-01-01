@@ -1,6 +1,9 @@
-package com.invoice.generation;
+package com.invoice.generation.Service;
 
 import org.springframework.stereotype.Service;
+
+import com.invoice.generation.DTOs.InvoiceDTO;
+import com.invoice.generation.DTOs.ItemDTO;
 
 @Service
 public class InvoiceService {

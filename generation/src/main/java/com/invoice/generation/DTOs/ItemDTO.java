@@ -1,4 +1,4 @@
-package com.invoice.generation;
+package com.invoice.generation.DTOs;
 
 public class ItemDTO {
     public String name;
