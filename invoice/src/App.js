@@ -41,16 +41,16 @@ export default function InvoiceGenerator() {
   const [isPasswordValid, setIsPasswordValid] = useState(false);
 
   const AUTHORIZED_SIGNATORIES = [
-    "D.H.",
-    "N.D.",
-    "S.R.",
+    "D.H",
+    "N.D",
+    "S.R",
     "Customer",
   ];
 
   const PASSWORDS = {
-  "D.H": REACT_APP_PASS_DH,
-  "N.H": REACT_APP_PASS_ND,
-  "S.R": REACT_APP_PASS_SR,
+  "D.H": process.env.REACT_APP_PASS_DH,
+  "N.H": process.env.REACT_APP_PASS_ND,
+  "S.R": process.env.REACT_APP_PASS_SR,
 };
 
   useEffect(() => {
