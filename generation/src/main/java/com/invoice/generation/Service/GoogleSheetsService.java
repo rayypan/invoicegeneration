@@ -18,20 +18,22 @@ import com.google.auth.oauth2.GoogleCredentials;
 @Service
 public class GoogleSheetsService {
 
-    private static final String SHEET_ID = "1kfrDLMZhW4HAXbewNDDGV9vjg_N7eCDtjusueTJfX3E";
+    @org.springframework.beans.factory.annotation.Value("${google.spreadsheet.id}")
+    private String SHEET_ID;
+
     private static final String BASE_URL
             = "https://sheets.googleapis.com/v4/spreadsheets/";
 
     public void writeRow(String sheetName, String range, List<Object> row) {
         try {
-            InputStream in = getClass()
-                    .getClassLoader()
-                    .getResourceAsStream("credentials.json");
-                
-                    if(in==null){
-                        throw new RuntimeException("Credentials.json not found");
-                        
-                    }
+            String base64 = System.getenv("GOOGLE_CREDENTIALS_BASE64");
+
+            if (base64 == null || base64.isEmpty()) {
+                throw new RuntimeException("GOOGLE_CREDENTIALS_BASE64 not set");
+            }
+
+            byte[] decoded = java.util.Base64.getDecoder().decode(base64);
+            InputStream in = new java.io.ByteArrayInputStream(decoded);
 
             GoogleCredentials credentials = GoogleCredentials
                     .fromStream(in)

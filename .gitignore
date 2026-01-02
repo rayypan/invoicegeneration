@@ -74,6 +74,7 @@ target/
 *.log
 Thumbs.db
 desktop.ini
+credentials_base64.txt
 
 
 
