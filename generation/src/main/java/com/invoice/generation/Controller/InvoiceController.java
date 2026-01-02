@@ -21,7 +21,7 @@ import com.invoice.generation.Service.InvoiceService;
 import com.invoice.generation.Service.PdfService;
 
 @CrossOrigin(
-        origins = "http://localhost:3000",
+        origins = {"http://localhost:3000","https://invoicegeneration-pi.vercel.app"},
         methods = {RequestMethod.POST, RequestMethod.OPTIONS}
 )
 @RestController
