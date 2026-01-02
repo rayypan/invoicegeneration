@@ -379,7 +379,7 @@ export default function InvoiceGenerator() {
     };
 
     try {
-      const response = await fetch("http://localhost:8080/invoice/generate", {
+      const response = await fetch("https://invoicegeneration-t2re.onrender.com/invoice/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
