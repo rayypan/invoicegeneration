@@ -159,24 +159,9 @@ public class InvoiceController {
         File pdfFile;
         pdfFile = new File(pdfPath);
 
+       (new EmailApiClient()).sendEmail(pdfPath,"Hi customer","<p>Aviruk in wonder land</p>");
+
         return "PDF Generated: " + pdfPath + ", Size: " + pdfFile.length() + " bytes";
     }
 
-    @PostMapping("/emailapiclient")
-    public String testemail() {
-        EmailApiClient.sendEmail(
-                "/path/to/invoice.pdf",
-                "alice@example.com,bob@example.com",
-                "John Doe <johndoe@example.com>",
-                "Invoice Generated",
-                "<h1>Hello</h1>",
-                "smtp.gmail.com",
-                "587",
-                "your-email@gmail.com",
-                "your-app-password"
-        );
-
-        return "Successful";
-
-    }
 }

@@ -2,6 +2,7 @@ package com.invoice.generation.Service;
 
 import java.nio.file.Path;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -12,31 +13,47 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 public class EmailApiClient {
+     @Value("${email.api.url}")
+    private String emailApiUrl;
 
-    public static String sendEmail(
+    @Value("${email.smtp.host}")
+    private String smtpHost;
+
+    @Value("${email.smtp.port}")
+    private String smtpPort;
+
+    @Value("${email.smtp.user}")
+    private String smtpUser;
+
+    @Value("${email.smtp.password}")
+    private String smtpPassword;
+
+    @Value("${email.from}")
+    private String from;
+
+    @Value("${email.cc:}")
+    private String cc;
+
+    @Value("${email.bcc:}")
+    private String bcc;
+
+    public String sendEmail(
             String filePath,
-            String to,
-            String from,
             String subject,
-            String html,
-            String emailHost,
-            String emailPort,
-            String emailUser,
-            String emailPassword
+            String html
     ) {
 
         WebClient client = WebClient.create();
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("to", to); // alice@example.com,bob@example.com
-        body.add("from", from); // John Doe <johndoe@example.com>
+        body.add("from", smtpUser); // John Doe <johndoe@example.com>
         body.add("subject", subject);
         body.add("html", html);
 
-        body.add("emailHost", emailHost);
-        body.add("emailPort", emailPort);
-        body.add("emailUser", emailUser);
-        body.add("emailPassword", emailPassword);
+        body.add("emailHost", smtpHost);
+        body.add("emailPort", smtpPort);
+        body.add("emailUser", smtpUser);
+        body.add("emailPassword", smtpPassword);
 
         body.add("file", new FileSystemResource(Path.of(filePath)));
 
