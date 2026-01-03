@@ -24,10 +24,14 @@ public class PdfService {
 
     public String generatePdf(InvoiceDTO invoice, double amount) {
 
+        System.out.println("========================================");
+        System.out.println("🔵 STEP 1: Starting PDF Generation");
+        System.out.println("========================================");
+
         String date = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm"));
 
-        // ✅ Calculate subtotal
+        // Calculate subtotal
         double subtotal = 0;
         for (ItemDTO item : invoice.items) {
             double itemTotal = item.price * item.quantity;
@@ -40,6 +44,7 @@ public class PdfService {
             subtotal += itemTotal;
         }
 
+        System.out.println("🔵 STEP 2: Creating Thymeleaf context");
         Context context = new Context();
         context.setVariable("subtotal", subtotal);
         context.setVariable("applyOverallDiscount", invoice.applyOverallDiscount);
@@ -59,47 +64,80 @@ public class PdfService {
         context.setVariable("invoiceStatus", invoice.invoiceStatus);
         context.setVariable("ownerMessage", invoice.ownerMessage);
 
+        System.out.println("🔵 STEP 3: Processing Thymeleaf template");
         String html = templateEngine.process("invoice", context);
+        System.out.println("✅ HTML generated: " + html.length() + " characters");
 
-        // ✅ Use system temp directory instead of current directory
+        // Use system temp directory
         String tempDir = System.getProperty("java.io.tmpdir");
         String fileName = "invoice_" + System.currentTimeMillis() + ".pdf";
         String path = tempDir + File.separator + fileName;
 
-        System.out.println("🔍 Generating PDF at: " + path);
+        System.out.println("🔵 STEP 4: PDF path: " + path);
 
-        try (FileOutputStream os = new FileOutputStream(path)) {
+        FileOutputStream os = null;
+        try {
+            os = new FileOutputStream(path);
+            System.out.println("✅ FileOutputStream created");
 
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            
-            // ✅ Get base URL for resources (for images in template)
             String baseUrl = getClass().getResource("/").toExternalForm();
+            System.out.println("🔵 STEP 5: Base URL for resources: " + baseUrl);
+            
             builder.withHtmlContent(html, baseUrl);
-
             builder.toStream(os);
+            
+            System.out.println("🔵 STEP 6: Running PDF builder...");
             builder.run();
+            System.out.println("✅ PDF builder completed");
 
-            // ✅ Force flush and close
+            // ⚠️ CRITICAL: Explicitly flush and close the stream
+            System.out.println("🔵 STEP 7: Flushing stream...");
             os.flush();
+            System.out.println("✅ Stream flushed");
+            
+            os.close();
+            os = null; // Prevent double-close in finally block
+            System.out.println("✅ Stream closed");
 
         } catch (Exception e) {
-            System.err.println("❌ PDF generation failed: " + e.getMessage());
+            System.err.println("❌❌❌ PDF generation FAILED at runtime ❌❌❌");
+            System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Failed to generate PDF", e);
+        } finally {
+            if (os != null) {
+                try {
+                    os.close();
+                    System.out.println("🔵 Stream closed in finally block");
+                } catch (Exception e) {
+                    System.err.println("⚠️ Failed to close stream in finally: " + e.getMessage());
+                }
+            }
         }
 
-        // ✅ VALIDATE: Check if PDF was actually created and has content
+        // ✅ VALIDATE: Check file after stream is closed
+        System.out.println("🔵 STEP 8: Validating PDF file...");
         File pdfFile = new File(path);
-        if (!pdfFile.exists()) {
-            throw new RuntimeException("PDF file was not created at: " + path);
-        }
         
+        if (!pdfFile.exists()) {
+            System.err.println("❌ PDF file does NOT exist at: " + path);
+            throw new RuntimeException("PDF file was not created");
+        }
+        System.out.println("✅ PDF file exists");
+
         long fileSize = pdfFile.length();
-        System.out.println("✅ PDF generated successfully. Size: " + fileSize + " bytes");
+        System.out.println("🔵 STEP 9: PDF file size: " + fileSize + " bytes");
         
         if (fileSize == 0) {
-            throw new RuntimeException("PDF file is empty (0 bytes). Check template and resources.");
+            System.err.println("❌ PDF file is EMPTY (0 bytes)");
+            throw new RuntimeException("PDF file is empty");
         }
+        
+        System.out.println("✅✅✅ PDF GENERATION COMPLETE ✅✅✅");
+        System.out.println("📄 Path: " + path);
+        System.out.println("📊 Size: " + fileSize + " bytes");
+        System.out.println("========================================");
 
         return path;
     }
