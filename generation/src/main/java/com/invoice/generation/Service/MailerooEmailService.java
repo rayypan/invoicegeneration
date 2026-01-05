@@ -131,23 +131,27 @@ public class MailerooEmailService {
             // HTML - string
             String htmlBody = String.format(
                 "<html><body>" +
-                "<p>Hi %s,</p>" +
-                "<p>Your invoice (%s) dated %s is attached.</p>" +
-                "<p>Thank you for using The Tinkori Tales!</p>" +
-                "<p>Best regards,<br/>The Tinkori Tales Team</p>" +
+                "<p>Dear %s,</p>" +
+                "<p>Thank you for choosing The Tinkori Tales.<p>"+
+                "<p>Invoice Status:(%s)<p>"+
+                "<p>Your invoice is attached.</p>" +
+                "<p>Best regards,"+
+                "<p>The Tinkori Tales</p><br/><br/><p><Diptimoy Hazra</p><br/><p>Finance & Accounts<p>" +
                 "</body></html>",
-                customerName, invoiceStatus, date
+                customerName, invoiceStatus
             );
             payload.put("html", htmlBody);
 
             // PLAIN - string
             String plainBody = String.format(
-                "Hi %s,\n\n" +
-                "Your invoice (%s) dated %s is attached.\n\n" +
-                "Thank you for using The Tinkori Tales!\n\n" +
+                "Dear %s,\n\n" +
+                "Thank you for choosing The Tinkori Tales.\n"+
+                "Invoice Status: (%s)\n\n" +
                 "Best regards,\n" +
-                "The Tinkori Tales Team",
-                customerName, invoiceStatus, date
+                "The Tinkori Tales\n\n"+
+                "Diptimoy Hazra"+
+                "Finance & Accounts",
+                customerName, invoiceStatus
             );
             payload.put("plain", plainBody);
             System.out.println("   html & plain: Added");
