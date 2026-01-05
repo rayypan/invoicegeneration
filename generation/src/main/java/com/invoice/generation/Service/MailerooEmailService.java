@@ -124,36 +124,36 @@ public class MailerooEmailService {
             }
 
             // SUBJECT - string
-            String subject = "Invoice - " + invoiceStatus;
+            String subject = "Thank You | "+customerName+" | "+invoiceStatus + " | "+date;
             payload.put("subject", subject);
             System.out.println("   subject: " + subject);
 
             // HTML - string
-            String htmlBody = String.format(
-                "<html><body>" +
-                "<p>Dear %s,</p>" +
-                "<p>Thank you for choosing The Tinkori Tales.<p>"+
-                "<p>Invoice Status:(%s)<p>"+
-                "<p>Your invoice is attached.</p>" +
-                "<p>Best regards,"+
-                "<p>The Tinkori Tales</p><br/><p><Diptimoy Hazra</p><p>Finance & Accounts<p>" +
-                "</body></html>",
-                customerName, invoiceStatus
-            );
-            payload.put("html", htmlBody);
-
-            // PLAIN - string
-            // String plainBody = String.format(
-            //     "Dear %s,\n\n" +
-            //     "Thank you for choosing The Tinkori Tales.\n"+
-            //     "Invoice Status: (%s)\n\n" +
-            //     "Best regards,\n" +
-            //     "The Tinkori Tales\n\n"+
-            //     "Diptimoy Hazra"+
-            //     "Finance & Accounts",
+            // String htmlBody = String.format(
+            //     "<html><body>" +
+            //     "<p>Dear %s,</p>" +
+            //     "<p>Thank you for choosing The Tinkori Tales.<p>"+
+            //     "<p>Invoice Status:(%s)<p>"+
+            //     "<p>Your invoice is attached.</p>" +
+            //     "<p>Best regards,"+
+            //     "<p>The Tinkori Tales</p><br/><p>Diptimoy Hazra<br/>Finance & Accounts<p>" +
+            //     "</body></html>",
             //     customerName, invoiceStatus
             // );
-           // payload.put("plain", plainBody);
+            // payload.put("html", htmlBody);
+
+            //PLAIN - string
+            String plainBody = String.format(
+                "Dear %s,\n\n" +
+                "Thank you for choosing The Tinkori Tales.\n"+
+                "Invoice Status:%s\n\n" +
+                "Best regards,\n" +
+                "The Tinkori Tales\n\n"+
+                "Diptimoy Hazra"+
+                "Finance & Accounts",
+                customerName, invoiceStatus
+            );
+           payload.put("plain", plainBody);
             System.out.println("   html & plain: Added");
 
             // TRACKING - boolean (like in your working Postman)
