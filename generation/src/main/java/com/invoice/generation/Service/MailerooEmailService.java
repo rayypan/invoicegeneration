@@ -22,7 +22,6 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
-@Primary
 public class MailerooEmailService {
 
     @Value("${maileroo.api.url}")

@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.invoice.generation.DTOs.InvoiceDTO;
-import com.invoice.generation.Service.EmailApiClient;
-import com.invoice.generation.Service.EmailService;
 import com.invoice.generation.Service.GoogleSheetsService;
 import com.invoice.generation.Service.InvoiceService;
 import com.invoice.generation.Service.MailerooEmailService;
@@ -143,24 +141,6 @@ public class InvoiceController {
         }
 
         return "Invoice generated & emailed successfully";
-    }
-
-    @GetMapping("/test-pdf")
-    public String testPdf() {
-        InvoiceDTO testInvoice = new InvoiceDTO();
-        testInvoice.customerName = "Test Customer";
-        testInvoice.customerPhone = "1234567890";
-        testInvoice.customerAddress = "Test Address";
-        testInvoice.invoiceStatus = "PAID";
-        testInvoice.items = new ArrayList<>();
-
-        String pdfPath = pdfService.generatePdf(testInvoice, 100.0);
-        File pdfFile;
-        pdfFile = new File(pdfPath);
-
-       (new EmailApiClient()).sendEmail(pdfPath,"Hi customer","<p>Aviruk in wonder land</p>");
-
-        return "PDF Generated: " + pdfPath + ", Size: " + pdfFile.length() + " bytes";
     }
 
 }
