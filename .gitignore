@@ -75,6 +75,8 @@ target/
 Thumbs.db
 desktop.ini
 credentials_base64.txt
+EmailApiClient.java
+EmailService.java
 
 
 

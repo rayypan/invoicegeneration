@@ -40,15 +40,11 @@ public class InvoiceController {
     private PdfService pdfService;
 
     @Autowired
-    private EmailService emailService;
-
-    @Autowired
     private GoogleSheetsService googleSheetsService;
 
-    @Autowired
-    private EmailApiClient eac;
 
-    @Autowired MailerooEmailService mailemailservice;
+    @Autowired 
+    MailerooEmailService mailemailservice;
 
     @PostMapping("/generate")
     public String generateInvoice(@RequestBody InvoiceDTO invoice) {
