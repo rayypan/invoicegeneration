@@ -19,11 +19,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Service
-@Primary  // This makes it the default EmailService implementation
+@Primary
 public class MailerooEmailService {
 
-    @Value("${maileroo.api.url:https://smtp.maileroo.com/send}")
+    @Value("${maileroo.api.url:https://smtp.maileroo.com/api/v2/emails}")
     private String mailerooApiUrl;
 
     @Value("${maileroo.api.key}")
@@ -42,54 +44,95 @@ public class MailerooEmailService {
             String invoiceStatus, String date) {
 
         System.out.println("\n========================================");
-        System.out.println("📧 STARTING MAILEROO EMAIL SEND PROCESS");
+        System.out.println("📧 MAILEROO EMAIL SEND - START");
         System.out.println("========================================");
 
         try {
-            // ✅ STEP 1: Validate PDF file
+            // STEP 1: Validate PDF
             System.out.println("🔵 STEP 1: Validating PDF file");
-            System.out.println("   Path received: " + pdfPath);
+            System.out.println("   Path: " + pdfPath);
             
             File pdfFile = new File(pdfPath);
-            
-            System.out.println("🔵 STEP 2: Checking if file exists...");
             if (!pdfFile.exists()) {
-                System.err.println("❌ FILE DOES NOT EXIST: " + pdfPath);
-                throw new IllegalArgumentException("PDF file not found at: " + pdfPath);
+                throw new IllegalArgumentException("PDF not found: " + pdfPath);
             }
-            System.out.println("✅ File exists");
-
-            System.out.println("🔵 STEP 3: Checking file size...");
-            long fileSize = pdfFile.length();
-            System.out.println("   File size: " + fileSize + " bytes");
             
+            long fileSize = pdfFile.length();
             if (fileSize == 0) {
-                System.err.println("❌ FILE IS EMPTY (0 bytes)");
-                throw new IllegalArgumentException("PDF file is empty: " + pdfPath);
+                throw new IllegalArgumentException("PDF is empty");
             }
-            System.out.println("✅ File has content: " + fileSize + " bytes");
+            System.out.println("✅ PDF Valid: " + fileSize + " bytes");
 
-            // ✅ STEP 4: Read and encode file to Base64
-            System.out.println("🔵 STEP 4: Reading and encoding PDF to Base64...");
+            // STEP 2: Read and encode PDF
+            System.out.println("🔵 STEP 2: Encoding PDF to Base64");
             byte[] fileBytes = Files.readAllBytes(pdfFile.toPath());
             String base64Content = Base64.getEncoder().encodeToString(fileBytes);
-            System.out.println("✅ PDF encoded to Base64. Length: " + base64Content.length());
+            System.out.println("✅ Base64 Length: " + base64Content.length());
 
-            // ✅ STEP 5: Build JSON request body using Map (Maileroo format)
-            System.out.println("🔵 STEP 5: Building Maileroo JSON request...");
-            Map<String, Object> body = new HashMap<>();
+            // STEP 3: Build JSON payload - EXACT Maileroo format
+            System.out.println("🔵 STEP 3: Building Maileroo API payload");
+            Map<String, Object> payload = new HashMap<>();
 
-            // Required fields
-            body.put("to", to);
-            System.out.println("   Added 'to': " + to);
+            // FROM (required) - object with address and display_name
+            Map<String, String> fromObject = new HashMap<>();
+            if (from.contains("<")) {
+                String displayName = from.substring(0, from.indexOf("<")).trim();
+                String address = from.substring(from.indexOf("<") + 1, from.indexOf(">")).trim();
+                fromObject.put("address", address);
+                fromObject.put("display_name", displayName);
+            } else {
+                fromObject.put("address", from);
+                fromObject.put("display_name", "The Tinkori Tales");
+            }
+            payload.put("from", fromObject);
+            System.out.println("   from: " + fromObject);
 
-            body.put("from", from);
-            System.out.println("   Added 'from': " + from);
-            
-            body.put("subject", "Invoice - " + invoiceStatus);
-            System.out.println("   Added 'subject': Invoice - " + invoiceStatus);
-            
-            // Email body
+            // TO (required) - array of objects
+            List<Map<String, String>> toArray = new ArrayList<>();
+            Map<String, String> toObject = new HashMap<>();
+            toObject.put("address", to);
+            toObject.put("display_name", customerName);
+            toArray.add(toObject);
+            payload.put("to", toArray);
+            System.out.println("   to: " + toArray);
+
+            // CC (optional) - can be object or array
+            if (cc != null && !cc.isBlank()) {
+                String[] ccEmails = cc.split(",");
+                if (ccEmails.length == 1) {
+                    Map<String, String> ccObject = new HashMap<>();
+                    ccObject.put("address", ccEmails[0].trim());
+                    payload.put("cc", ccObject);
+                } else {
+                    List<Map<String, String>> ccArray = new ArrayList<>();
+                    for (String email : ccEmails) {
+                        Map<String, String> ccObject = new HashMap<>();
+                        ccObject.put("address", email.trim());
+                        ccArray.add(ccObject);
+                    }
+                    payload.put("cc", ccArray);
+                }
+                System.out.println("   cc: " + cc);
+            }
+
+            // BCC (optional) - can be object or array
+            if (bcc != null && !bcc.isBlank()) {
+                String[] bccEmails = bcc.split(",");
+                List<Map<String, String>> bccArray = new ArrayList<>();
+                for (String email : bccEmails) {
+                    Map<String, String> bccObject = new HashMap<>();
+                    bccObject.put("address", email.trim());
+                    bccArray.add(bccObject);
+                }
+                payload.put("bcc", bccArray);
+                System.out.println("   bcc: " + bcc);
+            }
+
+            // SUBJECT (required) - string
+            payload.put("subject", "Invoice - " + invoiceStatus);
+            System.out.println("   subject: Invoice - " + invoiceStatus);
+
+            // HTML (required) - string
             String htmlBody = String.format(
                 "<html><body>" +
                 "<p>Hi %s,</p>" +
@@ -99,67 +142,52 @@ public class MailerooEmailService {
                 "</body></html>",
                 customerName, invoiceStatus, date
             );
-            body.put("html", htmlBody);
-            
-            // Also add plain text version for better compatibility
-            String textBody = String.format(
-                "Hi %s,\n\nYour invoice (%s) dated %s is attached.\n\n" +
+            payload.put("html", htmlBody);
+
+            // PLAIN (optional but recommended) - string
+            String plainBody = String.format(
+                "Hi %s,\n\n" +
+                "Your invoice (%s) dated %s is attached.\n\n" +
                 "Thank you for using The Tinkori Tales!\n\n" +
-                "Best regards,\nThe Tinkori Tales Team",
+                "Best regards,\n" +
+                "The Tinkori Tales Team",
                 customerName, invoiceStatus, date
             );
-            body.put("text", textBody);
-            System.out.println("   Added 'html' and 'text' body");
+            payload.put("plain", plainBody);
+            System.out.println("   html & plain: Added");
 
-            // Optional: Add CC if present
-            if (cc != null && !cc.isBlank()) {
-                body.put("cc", cc);
-                System.out.println("   Added 'cc': " + cc);
-            }
+            // ATTACHMENTS (optional) - array of objects
+            List<Map<String, Object>> attachmentsArray = new ArrayList<>();
+            Map<String, Object> attachmentObject = new HashMap<>();
+            attachmentObject.put("file_name", "invoice_" + invoiceStatus + ".pdf");
+            attachmentObject.put("content_type", "application/pdf");
+            attachmentObject.put("content", base64Content);
+            attachmentsArray.add(attachmentObject);
+            payload.put("attachments", attachmentsArray);
+            System.out.println("   attachments: invoice_" + invoiceStatus + ".pdf");
 
-            // Optional: Add BCC if present
-            if (bcc != null && !bcc.isBlank()) {
-                body.put("bcc", bcc);
-                System.out.println("   Added 'bcc': " + bcc);
-            }
+            // STEP 4: Convert to JSON and log
+            System.out.println("🔵 STEP 4: Converting payload to JSON");
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonPayload = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
+            System.out.println("📋 JSON PAYLOAD (first 500 chars):");
+            System.out.println(jsonPayload.substring(0, Math.min(500, jsonPayload.length())));
+            System.out.println("   [... truncated for readability]");
 
-            // Add attachment
-            System.out.println("🔵 STEP 6: Adding PDF attachment...");
-            List<Map<String, String>> attachments = new ArrayList<>();
-            Map<String, String> attachment = new HashMap<>();
-            attachment.put("filename", "invoice_" + invoiceStatus + ".pdf");
-            attachment.put("content", base64Content);
-            attachment.put("type", "application/pdf");
-            attachments.add(attachment);
-            body.put("attachments", attachments);
-            System.out.println("✅ PDF attachment added to JSON body");
-            System.out.println("   Attachment filename: invoice_" + invoiceStatus + ".pdf");
-
-            // Debug: Print the JSON structure
-            System.out.println("🔵 STEP 7: JSON Request Structure:");
-            System.out.println("   Keys in body: " + body.keySet());
-            System.out.println("   Subject value: " + body.get("subject"));
-            System.out.println("   From value: " + body.get("from"));
-            System.out.println("   To value: " + body.get("to"));
-
-            // ✅ STEP 8: Set headers with API key
-            System.out.println("🔵 STEP 8: Setting request headers...");
+            // STEP 5: Setup headers
+            System.out.println("🔵 STEP 5: Setting up headers");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-API-Key", apiKey);
-            headers.set("Accept", "application/json");
-            System.out.println("✅ Headers set:");
             System.out.println("   Content-Type: application/json");
-            System.out.println("   X-API-Key: " + (apiKey != null && apiKey.length() > 10 ? apiKey.substring(0, 10) + "..." : "NOT SET"));
-            System.out.println("   Accept: application/json");
+            System.out.println("   X-API-Key: " + (apiKey != null ? apiKey.substring(0, 10) + "..." : "NOT SET"));
 
-            // ✅ STEP 9: Create request entity
-            System.out.println("🔵 STEP 9: Creating HTTP request entity...");
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            System.out.println("✅ Request entity created");
+            // STEP 6: Create HTTP request
+            System.out.println("🔵 STEP 6: Creating HTTP request");
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
 
-            // ✅ STEP 10: Send request
-            System.out.println("🔵 STEP 10: Sending HTTP POST request to Maileroo API...");
+            // STEP 7: Send to Maileroo
+            System.out.println("🔵 STEP 7: Sending POST to Maileroo");
             System.out.println("   URL: " + mailerooApiUrl);
             
             RestTemplate restTemplate = new RestTemplate();
@@ -169,54 +197,43 @@ public class MailerooEmailService {
                 String.class
             );
 
-            System.out.println("🔵 STEP 11: Received response from Maileroo API");
-            System.out.println("   Status Code: " + response.getStatusCode());
-            System.out.println("   Response Body: " + response.getBody());
+            // STEP 8: Process response
+            System.out.println("🔵 STEP 8: Response received");
+            System.out.println("   Status: " + response.getStatusCode());
+            System.out.println("   Body: " + response.getBody());
 
             if (response.getStatusCode() == HttpStatus.OK || 
-                response.getStatusCode() == HttpStatus.ACCEPTED ||
-                response.getStatusCode() == HttpStatus.CREATED) {
-                System.out.println("✅✅✅ EMAIL SENT SUCCESSFULLY VIA MAILEROO ✅✅✅");
-                System.out.println("📧 Email sent to: " + to);
-                System.out.println("📎 Attachment: invoice_" + invoiceStatus + ".pdf");
+                response.getStatusCode() == HttpStatus.CREATED ||
+                response.getStatusCode() == HttpStatus.ACCEPTED) {
+                System.out.println("✅✅✅ EMAIL SENT SUCCESSFULLY ✅✅✅");
                 
-                // Clean up temp file
+                // Delete temp PDF
                 if (pdfFile.delete()) {
-                    System.out.println("🗑️ Temp PDF file deleted: " + pdfPath);
-                } else {
-                    System.out.println("⚠️ Could not delete temp PDF: " + pdfPath);
+                    System.out.println("🗑️  Temp PDF deleted");
                 }
             } else {
-                System.err.println("❌ Maileroo API returned non-success status");
-                throw new RuntimeException("Email failed with status: " + response.getStatusCode());
+                throw new RuntimeException("Unexpected status: " + response.getStatusCode());
             }
 
         } catch (org.springframework.web.client.HttpClientErrorException e) {
-            System.err.println("\n❌❌❌ HTTP CLIENT ERROR ❌❌❌");
-            System.err.println("Response Status: " + e.getStatusCode());
-            System.err.println("Response Body: " + e.getResponseBodyAsString());
-            System.err.println("This means Maileroo API rejected our request");
-            System.err.println("\n🔍 Common issues:");
-            System.err.println("   1. API Key not set or invalid (check MAILEROO_API_KEY env var)");
-            System.err.println("   2. Sender email not verified in Maileroo dashboard");
-            System.err.println("   3. Invalid email format");
-            System.err.println("   4. Attachment too large (max 10MB)");
+            System.err.println("\n❌❌❌ MAILEROO API ERROR ❌❌❌");
+            System.err.println("Status: " + e.getStatusCode());
+            System.err.println("Response: " + e.getResponseBodyAsString());
+            System.err.println("\n💡 Troubleshooting:");
+            System.err.println("   1. Check MAILEROO_API_KEY env variable");
+            System.err.println("   2. Verify sender domain in Maileroo dashboard");
+            System.err.println("   3. Check email format is valid");
             System.err.println("========================================\n");
-            throw new RuntimeException("Maileroo API error: " + e.getResponseBodyAsString(), e);
+            throw new RuntimeException("Maileroo error: " + e.getResponseBodyAsString(), e);
             
         } catch (IOException e) {
-            System.err.println("\n❌❌❌ FILE READ ERROR ❌❌❌");
-            System.err.println("Error reading PDF file: " + e.getMessage());
-            e.printStackTrace();
-            System.err.println("========================================\n");
-            throw new RuntimeException("Failed to read PDF file: " + e.getMessage(), e);
+            System.err.println("\n❌ FILE ERROR: " + e.getMessage());
+            throw new RuntimeException("PDF read failed: " + e.getMessage(), e);
             
         } catch (Exception e) {
-            System.err.println("\n❌❌❌ EMAIL SEND FAILED ❌❌❌");
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("\n❌ UNEXPECTED ERROR: " + e.getMessage());
             e.printStackTrace();
-            System.err.println("========================================\n");
-            throw new RuntimeException("Email sending failed: " + e.getMessage(), e);
+            throw new RuntimeException("Email failed: " + e.getMessage(), e);
         }
 
         System.out.println("========================================\n");
