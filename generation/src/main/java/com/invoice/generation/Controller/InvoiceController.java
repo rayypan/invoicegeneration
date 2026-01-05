@@ -59,7 +59,7 @@ public class InvoiceController {
         double amount = invoiceService.calculatePayable(invoice);
 
         String pdfPath = pdfService.generatePdf(invoice, amount);
-        mailemailservice.sendInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
+        mailemailservice.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
 
         String itemsSummary = invoice.items.stream()
                 .map(item
