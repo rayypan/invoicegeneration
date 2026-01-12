@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
@@ -36,7 +37,7 @@ public class GenericEmailService {
     private String smtpUser;
 
     @Value("${email.smtp.password}")
-    private String smtpPassword; // never log
+    private String smtpPassword; // NEVER log
 
     @Value("${email.from.address}")
     private String from;
@@ -57,21 +58,21 @@ public class GenericEmailService {
 
         log.info("========== EMAIL FLOW START ==========");
 
-        /* STEP 1: INPUT LOG */
-        log.info("STEP 1 → Input received");
+        /* STEP 1: INPUT */
+        log.info("STEP 1 → Inputs");
         log.info("to={}, customerName={}, invoiceStatus={}, date={}",
                 to, customerName, invoiceStatus, date);
-        log.info("attachment={}", attachment != null ? attachment.getAbsolutePath() : "null");
+        log.info("attachment={}",
+                attachment != null ? attachment.getAbsolutePath() : "null");
 
         /* STEP 2: VALIDATION */
-        log.info("STEP 2 → Validating inputs");
+        log.info("STEP 2 → Validation");
         if (to == null || to.isBlank()) {
-            log.error("Recipient email missing");
             throw new IllegalArgumentException("Recipient email (to) is required");
         }
 
-        /* STEP 3: BUILD SUBJECT & BODY */
-        log.info("STEP 3 → Building subject and body");
+        /* STEP 3: SUBJECT & BODY */
+        log.info("STEP 3 → Building subject & body");
 
         String subject = "Thank You | "
                 + customerName + " | "
@@ -88,30 +89,30 @@ public class GenericEmailService {
                 + "Finance & Accounts\n"
                 + "For support email us at thetinkoritales@gmail.com";
 
-        /* STEP 4: BUILD FORM DATA */
+        /* STEP 4: BUILD MULTIPART FORM */
         log.info("STEP 4 → Building multipart form-data");
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
-        body.add("to", to);
-        body.add("from", "The Tinkori Tales <" + from + ">");
-        body.add("subject", subject);
-        body.add("text", textBody);
+        body.add("to", textPart(to));
+        body.add("from", textPart("The Tinkori Tales <" + from + ">"));
+        body.add("subject", textPart(subject));
+        body.add("text", textPart(textBody));
 
-        body.add("emailHost", smtpHost);
-        body.add("emailPort", smtpPort);
-        body.add("emailUser", smtpUser);
-        body.add("emailPassword", smtpPassword);
+        body.add("emailHost", textPart(smtpHost));
+        body.add("emailPort", textPart(smtpPort));
+        body.add("emailUser", textPart(smtpUser));
+        body.add("emailPassword", textPart(smtpPassword));
 
         if (cc != null && !cc.isBlank()) {
             for (String c : cc.split(",")) {
-                body.add("cc", c.trim());
+                body.add("cc", textPart(c.trim()));
             }
         }
 
         if (bcc != null && !bcc.isBlank()) {
             for (String b : bcc.split(",")) {
-                body.add("bcc", b.trim());
+                body.add("bcc", textPart(b.trim()));
             }
         }
 
@@ -119,7 +120,7 @@ public class GenericEmailService {
             body.add("file", new FileSystemResource(attachment));
         }
 
-        /* STEP 5: DUMP FORM DATA (THIS IS WHAT YOU ASKED FOR) */
+        /* STEP 5: LOG FINAL FORM DATA */
         log.info("STEP 5 → FINAL FORM DATA BEFORE SENDING");
 
         body.forEach((key, values) -> {
@@ -131,22 +132,24 @@ public class GenericEmailService {
                     } catch (Exception e) {
                         log.info("FORM → {} = FILE[name={}]", key, file.getFilename());
                     }
-                } else if ("emailPassword".equals(key)) {
-                    log.info("FORM → {} = ****** (hidden)", key);
-                } else {
-                    log.info("FORM → {} = {}", key, value);
+                } else if (value instanceof HttpEntity<?> entity) {
+                    if ("emailPassword".equals(key)) {
+                        log.info("FORM → {} = ****** (hidden)", key);
+                    } else {
+                        log.info("FORM → {} = {}", key, entity.getBody());
+                    }
                 }
             }
         });
 
-        /* STEP 6: PREPARE REQUEST */
+        /* STEP 6: REQUEST */
         log.info("STEP 6 → Preparing HTTP request");
 
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<MultiValueMap<String, Object>> request =
                 new HttpEntity<>(body, headers);
 
-        /* STEP 7: CONFIGURE REST TEMPLATE */
+        /* STEP 7: REST TEMPLATE */
         log.info("STEP 7 → Configuring RestTemplate");
 
         RestTemplate restTemplate = new RestTemplate();
@@ -155,9 +158,9 @@ public class GenericEmailService {
         restTemplate.getMessageConverters().add(new StringHttpMessageConverter());
         restTemplate.getMessageConverters().add(new ResourceHttpMessageConverter());
 
-        /* STEP 8: SEND REQUEST */
-        log.info("STEP 8 → Sending request to external email service");
-        log.info("External URL → {}", apiUrl);
+        /* STEP 8: SEND */
+        log.info("STEP 8 → Sending request");
+        log.info("External API URL → {}", apiUrl);
 
         try {
             ResponseEntity<String> response =
@@ -181,5 +184,13 @@ public class GenericEmailService {
         }
 
         log.info("========== EMAIL FLOW END ==========");
+    }
+
+    /* ================= HELPER ================= */
+
+    private HttpEntity<String> textPart(String value) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        return new HttpEntity<>(value, headers);
     }
 }
