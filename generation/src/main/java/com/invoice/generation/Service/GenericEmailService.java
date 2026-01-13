@@ -1,32 +1,31 @@
 package com.invoice.generation.Service;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class GenericEmailService {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(GenericEmailService.class);
+    private static final Logger log
+            = LoggerFactory.getLogger(GenericEmailService.class);
 
     @Value("${email.api.url}")
     private String apiUrl;
-
-    @Value("${email.smtp.host}")
-    private String smtpHost;
-
-    @Value("${email.smtp.port}")
-    private String smtpPort;
 
     @Value("${email.smtp.user}")
     private String smtpUser;
@@ -37,6 +36,9 @@ public class GenericEmailService {
     @Value("${email.from.address}")
     private String from;
 
+    @Value("${email.secret.key}") // same 16-char key as Vercel
+    private String secretKey;
+
     public void sendEmail(
             String to,
             String customerName,
@@ -45,52 +47,93 @@ public class GenericEmailService {
             File attachment
     ) {
 
-        log.info("========== EMAIL FLOW START ==========");
-
-        String subject = "Thank You | "
-                + customerName + " | "
-                + invoiceStatus + " | "
-                + date;
-
-        String textBody =
-                "Dear " + customerName + ",\n\n"
-                + "Thank you for choosing The Tinkori Tales.\n"
-                + "Invoice Status: " + invoiceStatus + "\n\n"
-                + "Best regards,\n"
-                + "The Tinkori Tales";
-
-        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-
-        form.add("to", to);
-        form.add("from", "The Tinkori Tales <" + from + ">");
-        form.add("subject", subject);
-        form.add("text", textBody);
-
-        form.add("emailHost", smtpHost);
-        form.add("emailPort", smtpPort);
-        form.add("emailUser", smtpUser);
-        form.add("emailPassword", smtpPassword);
-
-        if (attachment != null && attachment.exists()) {
-            form.add("file", new FileSystemResource(attachment));
+        if (secretKey == null || secretKey.length() != 16) {
+            throw new IllegalStateException("email.secret.key must be exactly 16 characters");
         }
 
-        // 🔍 LOG EXACT FORM DATA
-        log.info("FINAL FORM DATA:");
-        form.forEach((k, v) -> log.info("{} = {}", k, v));
+        log.info("========== EMAIL FLOW START ==========");
 
-        WebClient webClient = WebClient.builder().build();
+        try {
+            String subject = "Thank You | "
+                    + customerName + " | "
+                    + invoiceStatus + " | "
+                    + date;
 
-        webClient.post()
-                .uri(apiUrl)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(form))
-                .retrieve()
-                .bodyToMono(String.class)
-                .doOnNext(resp -> log.info("Email API response: {}", resp))
-                .doOnError(err -> log.error("Email sending failed", err))
-                .block(); // synchronous on purpose
+            String textBody
+                    = "Dear " + customerName + ",\n\n"
+                    + "Thank you for choosing The Tinkori Tales.\n"
+                    + "Invoice Status: " + invoiceStatus + "\n\n"
+                    + "Best regards,\n"
+                    + "The Tinkori Tales";
+
+            /* ========== BUILD PAYLOAD ========== */
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("to", to);
+            payload.put("from", "The Tinkori Tales <" + from + ">");
+            payload.put("subject", subject);
+            payload.put("text", textBody);
+            payload.put("smtpUser", smtpUser);
+            payload.put("smtpPassword", smtpPassword);
+
+            if (attachment != null && attachment.exists()) {
+                payload.put("attachments", new Object[]{
+                    Map.of(
+                    "fileName", attachment.getName(),
+                    "fileBase64", Base64.getEncoder()
+                    .encodeToString(
+                    Files.readAllBytes(
+                    attachment.toPath()
+                    )
+                    )
+                    )
+                });
+            }
+
+            /* ========== LOG BEFORE ENCRYPTION ========== */
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonPayload = mapper.writeValueAsString(payload);
+
+            log.info("EMAIL PAYLOAD BEFORE ENCRYPTION:");
+            log.info(jsonPayload);
+
+            /* ========== ENCRYPT ========== */
+            String encryptedPayload = encrypt(jsonPayload);
+
+            log.info("Encrypted payload generated successfully");
+
+            /* ========== SEND TO NODE SERVICE ========== */
+            WebClient.create()
+                    .post()
+                    .uri(apiUrl)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(
+                            Map.of("encryptedPayload", encryptedPayload)
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .doOnNext(resp
+                            -> log.info("Email API response: {}", resp)
+                    )
+                    .doOnError(err
+                            -> log.error("Email API call failed", err)
+                    )
+                    .block();
+
+        } catch (Exception e) {
+            log.error("EMAIL FLOW FAILED", e);
+            throw new RuntimeException("Email sending failed", e);
+        }
 
         log.info("========== EMAIL FLOW END ==========");
+    }
+
+    /* ========== AES-128-ECB ENCRYPTION ========== */
+    private String encrypt(String data) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        SecretKeySpec key
+                = new SecretKeySpec(secretKey.getBytes(), "AES");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        return Base64.getEncoder()
+                .encodeToString(cipher.doFinal(data.getBytes()));
     }
 }
