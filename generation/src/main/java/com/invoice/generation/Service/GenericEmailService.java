@@ -109,8 +109,8 @@ public class GenericEmailService {
             if (cc != null && !cc.isBlank()) {
                 payload.put("cc", cc);
             }
-            if (cc != null && !cc.isBlank()) {
-                payload.put("cc", cc);
+            if (bcc != null && !bcc.isBlank()) {
+                payload.put("bcc", bcc);
             }
             if (replyTo != null && !replyTo.isBlank()) {
                 payload.put("replyTo", replyTo);
